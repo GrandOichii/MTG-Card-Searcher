@@ -106,9 +106,7 @@ class MainAppWindow(QMainWindow):
 
         self.thread.start()
 
-        self.thread.finished.connect(lambda: self.load_image)
-        #self.thread.finished.connect(lambda: self.search_cards_button.setEnabled(True))
-        #self.thread.finished.connect(lambda: self.card_name.setEnabled(True))
+        self.thread.finished.connect(lambda: self.load_image())
         
     def handle_card_urls(self, card_urls):
         self.card_urls = card_urls
