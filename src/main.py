@@ -26,6 +26,20 @@ class CardSearcher(QThread):
         self.result.emit(card_urls)
         self.finished.emit()
 
+class ImageLoader(QThread):
+    finished = pyqtSignal()
+    result = pyqtSignal(QImage)
+
+    def __init__(self, imageUrl):
+        super(QThread, self).__init__()
+        self.imageUrl = imageUrl
+
+    def run(self):
+        image = QImage()
+        image.loadFromData(requests.get(self.imageUrl).content)
+        self.result.emit(image)
+        self.finished.emit()
+
 
 def window():
     app = QApplication([])
@@ -92,26 +106,45 @@ class MainAppWindow(QMainWindow):
 
         self.thread.start()
 
-        self.thread.finished.connect(lambda: self.search_cards_button.setEnabled(True))
-        self.thread.finished.connect(lambda: self.card_name.setEnabled(True))
+        self.thread.finished.connect(lambda: self.load_image)
+        #self.thread.finished.connect(lambda: self.search_cards_button.setEnabled(True))
+        #self.thread.finished.connect(lambda: self.card_name.setEnabled(True))
         
     def handle_card_urls(self, card_urls):
         self.card_urls = card_urls
+
         if len(card_urls) == 0:
             self.showMB(f'No cards with name ${self.card_name.text()} found!', 'MTG Card Searcher')
             return
-        self.cur_image_id = 0
-        if len(card_urls) > 1:
-            self.previous_button.setEnabled(True)
-            self.next_button.setEnabled(True)
-        self.load_image()
+        self.cur_image_id = 0    
 
     def load_image(self):
-        imageUrl = self.card_urls[self.cur_image_id]
-        print(f'Loading image: ${imageUrl}')
-        image = QImage()
-        image.loadFromData(requests.get(imageUrl).content)
+        self.thread = QThread()
+        self.worker = ImageLoader(self.card_urls[self.cur_image_id])
+        self.worker.moveToThread(self.thread)
+
+        self.thread.started.connect(self.worker.run)
+        self.worker.finished.connect(self.thread.quit)
+
+        self.worker.finished.connect(self.worker.deleteLater)
+        self.thread.finished.connect(self.thread.deleteLater)
+
+        self.search_cards_button.setEnabled(False)
+        self.previous_button.setEnabled(False)
+        self.next_button.setEnabled(False)
+        self.card_name.setEnabled(False)
+
+        self.worker.result.connect(self.handle_image)
+
+        self.thread.start()
+        self.thread.finished.connect(lambda: self.search_cards_button.setEnabled(True))
+        self.thread.finished.connect(lambda: self.card_name.setEnabled(True))
+
+    def handle_image(self, image):
         self.card_image_label.setPixmap(QPixmap(image))
+        if len(self.card_urls) > 1:
+            self.previous_button.setEnabled(True)
+            self.next_button.setEnabled(True)   
 
     def previous_button_click(self):
         self.cur_image_id -= 1
@@ -119,7 +152,6 @@ class MainAppWindow(QMainWindow):
             self.cur_image_id = len(self.card_urls) - 1
         self.load_image()
             
-
     def next_button_click(self):
         self.cur_image_id += 1
         if self.cur_image_id == len(self.card_urls):
