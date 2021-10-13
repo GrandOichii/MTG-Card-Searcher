@@ -102,21 +102,29 @@ class MainAppWindow(QMainWindow):
             return
         self.cur_image_id = 0
         if len(card_urls) > 1:
+            self.previous_button.setEnabled(True)
             self.next_button.setEnabled(True)
-        self.load_image(self.card_urls[0])
+        self.load_image()
 
-    def load_image(self, imageUrl):
+    def load_image(self):
+        imageUrl = self.card_urls[self.cur_image_id]
         print(f'Loading image: ${imageUrl}')
         image = QImage()
         image.loadFromData(requests.get(imageUrl).content)
         self.card_image_label.setPixmap(QPixmap(image))
 
-
     def previous_button_click(self):
-        pass
+        self.cur_image_id -= 1
+        if self.cur_image_id < 0:
+            self.cur_image_id = len(self.card_urls) - 1
+        self.load_image()
+            
 
     def next_button_click(self):
-        pass
+        self.cur_image_id += 1
+        if self.cur_image_id == len(self.card_urls):
+            self.cur_image_id = 0
+        self.load_image()
 
     def showMB(self, text, title):
         msg = QMessageBox(self)
